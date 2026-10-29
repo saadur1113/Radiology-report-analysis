@@ -1,0 +1,17 @@
+# Datasets, model weights and outputs are never committed (MIMIC-CXR DUA; size).
+data/
+checkpoints/
+results/
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.faiss
+*.npy
+*.pkl
+*.log
+
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.claude/
