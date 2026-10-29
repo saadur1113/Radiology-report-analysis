@@ -8,7 +8,6 @@ Experiment D: Post-Training Evaluation Battery
 
 2. Content ablation rerun (medical vs garbage)
    - Same 100-sample protocol
-   - Prediction: if pathway trained, 92.5% similarity should collapse
 
 3. Standard generation for BLEU/RadGraph
 """
@@ -156,7 +155,6 @@ def content_ablation_test(model, csv_file, device, n_samples=100):
     """
     Compare outputs with medical vs irrelevant retrieval context.
     If pathway trained: outputs should differ significantly.
-    If pathway still starved: 92.5% similarity (same as before).
     """
     print("\n" + "=" * 60)
     print("TEST 2: CONTENT ABLATION (MEDICAL vs GARBAGE)")
@@ -220,7 +218,6 @@ def content_ablation_test(model, csv_file, device, n_samples=100):
         print("  Outputs differ significantly between medical and garbage.")
     else:
         print("  VERDICT: Model IGNORES retrieval content ❌")
-        print(f"  Previous baseline: 42% identical, 92.5% similarity")
         print(f"  Current: {results['identical_pct']:.0f}% identical, "
               f"{results['median_similarity']:.1%} similarity")
     
@@ -284,7 +281,10 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', required=True)
     parser.add_argument('--n_samples', type=int, default=100)
     parser.add_argument('--device', default='cuda:0')
+    parser.add_argument('--seed', type=int, default=0,
+        help='Seed for the swapped-context pairing (the paper runs were unseeded)')
     args = parser.parse_args()
+    np.random.seed(args.seed)
     
     os.makedirs(args.output_dir, exist_ok=True)
     device = torch.device(args.device)

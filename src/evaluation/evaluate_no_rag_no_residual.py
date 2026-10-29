@@ -567,7 +567,7 @@ def main():
     
     # Dataset arguments
     parser.add_argument('--csv_file', type=str,
-                       default='./data/processed/mimic_cxr_val.csv',
+                       default='./data/processed/mimic_cxr_val_clean.csv',
                        help='Path to validation CSV')
     parser.add_argument('--max_samples', type=int, default=None,
                        help='Maximum samples to evaluate (None = all)')

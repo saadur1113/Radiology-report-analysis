@@ -1,7 +1,7 @@
 """
 Fast Dataset with Pre-Cached Retrievals
 
-Use this for Stage 2 training after running cache_retrievals.py
+Use this for Stage 2 training after running build_gen_then_retrieve_cache.py
 
 This is 60x faster than on-the-fly retrieval!
 """
@@ -145,7 +145,7 @@ if __name__ == '__main__':
     print("Testing Cached Dataset...")
     
     dataset = MIMICCXRDatasetCached(
-        csv_file='./data/processed/mimic_cxr_train.csv',
+        csv_file='./data/processed/mimic_cxr_train_clean.csv',
         retrieval_cache_file='./data/retrieval_cache_train.pkl',
         tokenizer_name='Salesforce/blip2-opt-2.7b'
     )

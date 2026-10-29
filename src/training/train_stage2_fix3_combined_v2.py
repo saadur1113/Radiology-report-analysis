@@ -390,9 +390,9 @@ def main():
     # Paths
     parser.add_argument('--stage1_checkpoint', type=str, required=True)
     parser.add_argument('--train_csv', type=str, 
-                       default='./data/processed/mimic_cxr_train.csv')
+                       default='./data/processed/mimic_cxr_train_clean.csv')
     parser.add_argument('--val_csv', type=str,
-                       default='./data/processed/mimic_cxr_val.csv')
+                       default='./data/processed/mimic_cxr_val_clean.csv')
     parser.add_argument('--train_cache', type=str, required=True,
                        help='Path to cached train retrievals (.pkl)')
     parser.add_argument('--val_cache', type=str, required=True,
@@ -415,12 +415,12 @@ def main():
     
     if not os.path.exists(args.train_cache):
         print(f"Error: Train cache not found: {args.train_cache}")
-        print("Run cache_retrievals.py first!")
+        print("Run build_gen_then_retrieve_cache.py first!")
         return
     
     if not os.path.exists(args.val_cache):
         print(f"Error: Val cache not found: {args.val_cache}")
-        print("Run cache_retrievals.py first!")
+        print("Run build_gen_then_retrieve_cache.py first!")
         return
     
     # Run training

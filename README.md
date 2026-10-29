@@ -92,10 +92,6 @@ The patient-level splits were originally made with `fix_patient_leakage.py` (it 
 patients that crossed the official MIMIC-CXR split boundaries). `check_data_leakage.py`,
 `check_data_leakage_advanced.py` and `verify_split_logic.py` audit the result.
 
-> **Note:** several training scripts default to `mimic_cxr_{train,val}.csv`, the splits from
-> before the patient-level fix. Always pass the `*_clean.csv` files explicitly, as in the
-> commands below.
-
 ## Reproducing the paper
 
 The commands below use the following shorthands:
@@ -229,13 +225,19 @@ python src/evaluation/evaluate_content_ablation.py --models stage1,qformer \
 With real images, this replaces the retrieved reports with pangrams and with another patient's
 reports (first 100 validation samples), and reports the identical-output rate and word overlap.
 
+Section 3.3 numbers: the real-image pangram test (85/100 outputs differ, median overlap 0.57)
+comes from this script. The blank-image swapped-report test on the standard model (follows the
+swapped report in 50/100, overlap 0.18 vs. 0.18) comes from `evaluate_expD.py --checkpoint $S2`
+(see step 9). `evaluate_expD.py` pairs reports at random; the paper's runs used no fixed seed,
+so `--seed 0` (the default) can differ from the paper by a few samples.
+
 ### 9. Table 5: diagnostic experiments
 
 | Exp | Stage 1 | Stage 2 | Evaluation |
 |---|---|---|---|
 | A: remove residual | `train_stage1_opt.py` | `train_stage2_no_residual.py` | `evaluate_no_rag_no_residual.py`, `evaluate_biomedclip_no_residual.py` |
 | B: random retrieval in Stage 1 | `train_stage1_with_retrieval.py --seed {42,123,456}` | `train_stage2_opt_fast.py` | standard |
-| B′: relevant retrieval in Stage 1 | `train_stage1_relevant_retrieval.py --retrieval_cache <cache>` | `train_stage2_opt_fast.py` | standard |
+| B′: relevant retrieval in Stage 1 | `train_stage1_relevant_retrieval.py --retrieval_cache <cache> --seed {42,123,456}` | `train_stage2_opt_fast.py` | standard |
 | C: A + B | `train_stage1_with_retrieval.py` | `train_stage2_no_residual.py` | as A |
 | D: forced utilization | `train_stage1_opt.py` | `train_stage2_forced_utilization.py --mask_prob 1.0 --seed {0,123,456}` | `evaluate_expD.py` |
 

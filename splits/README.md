@@ -18,7 +18,8 @@ Rows are in the exact order used in the paper.
 are patient-level, so no `subject_id` appears in more than one split. They were derived from
 the official MIMIC-CXR-JPG split by moving patients that crossed split boundaries
 (`src/data_prep/fix_patient_leakage.py`). Only the validation split is used for evaluation in
-the paper. Access to MIMIC-CXR requires PhysioNet credentialing and acceptance of its data use
+the paper. The FAISS retrieval index keeps the 94,229 training studies with non-empty findings.
+Access to MIMIC-CXR requires PhysioNet credentialing and acceptance of its data use
 agreement.
 
 **IU X-Ray.** Only the 640-image test split is used in the paper (zero-shot evaluation). The

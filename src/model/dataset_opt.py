@@ -334,7 +334,7 @@ if __name__ == '__main__':
     print("Testing OPT Dataset...")
     
     dataset = MIMICCXRDataset(
-        csv_file='./data/processed/mimic_cxr_train.csv',
+        csv_file='./data/processed/mimic_cxr_train_clean.csv',
         tokenizer_name='Salesforce/blip2-opt-2.7b'
     )
     

@@ -381,8 +381,8 @@ def train_stage1(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--train_csv', default='./data/processed/mimic_cxr_train.csv')
-    parser.add_argument('--val_csv', default='./data/processed/mimic_cxr_val.csv')
+    parser.add_argument('--train_csv', default='./data/processed/mimic_cxr_train_clean.csv')
+    parser.add_argument('--val_csv', default='./data/processed/mimic_cxr_val_clean.csv')
     parser.add_argument('--output_dir', default='./checkpoints/stage1_opt')
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--epochs', type=int, default=5)
