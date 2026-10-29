@@ -1,5 +1,5 @@
 """
-Direct-LLM RAG vs Q-Former RAG: matched evaluation.
+Q-Former RAG evaluation and retrieval content ablation (Section 3.3).
 
 All models are evaluated on the same validation samples with the same decoding
 (beam 5, up to 200 new tokens, no_repeat_ngram_size=3, length_penalty=1.0), then
@@ -8,11 +8,8 @@ scored at full length and truncated to 35/39/50 words (the paper's Table 3 proto
 Models / conditions
   stage1   : Stage 1, no retrieval                                   -> s1
   qformer  : Stage 2 Q-Former RAG, with / without retrieval          -> qf_with, qf_none
-  direct   : OPT fine-tuned with retrieved text in its input,
-             with / without context                                  -> dc_with, dc_without
-  control  : OPT fine-tuned with the prompt "Findings: " only        -> ctrl
 
-Content tests (first --n_ablation samples, real images), for qformer and direct:
+Content tests (first --n_ablation samples, real images), for qformer:
   - medical (retrieved, k=3) vs pangram context (3 pangrams, one per slot):
       identical %, median word-Jaccard among non-identical (as in evaluate_expD.py),
       and median word-Jaccard over all samples
@@ -23,18 +20,13 @@ Each condition's predictions are saved separately and skipped on rerun (resumabl
 Models are loaded one at a time to stay within GPU memory.
 
 Usage:
-  CUDA_VISIBLE_DEVICES=6 python eval_direct_vs_qformer.py \
-      --models stage1,qformer,direct --output_dir ./results/direct_vs_qformer
-  # after the no-context control finishes training:
-  CUDA_VISIBLE_DEVICES=6 python eval_direct_vs_qformer.py \
-      --models control --output_dir ./results/direct_vs_qformer
+  CUDA_VISIBLE_DEVICES=0 python evaluate_content_ablation.py \
+      --models stage1,qformer --output_dir ./results/content_ablation
 """
 
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'model'))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'training'))
-import os
 import gc
 import json
 import pickle
@@ -48,7 +40,6 @@ from torchvision import transforms
 from tqdm import tqdm
 
 from modified_qformer_opt import RAGEnhancedBLIP2_OPT
-from train_direct_context import DirectContextModel
 
 PANGRAMS = [
     "The quick brown fox jumps over the lazy dog.",
@@ -142,15 +133,6 @@ def load_rag(ckpt_path, use_retrieval, device):
     return m.to(device).eval()
 
 
-def load_direct(ckpt_path, device):
-    base = RAGEnhancedBLIP2_OPT(blip2_model_name='Salesforce/blip2-opt-2.7b',
-                                num_query_tokens=32, freeze_vision=True,
-                                freeze_llm=True, use_retrieval=False)
-    m = DirectContextModel(base)
-    _load_state(m, ckpt_path, 'language_model.')
-    return m.to(device).eval()
-
-
 def free(model):
     del model
     gc.collect()
@@ -164,21 +146,6 @@ def gen_qformer(m, pv, retrieved):
     attn = torch.ones(emb.shape[:2], dtype=torch.long, device=emb.device)
     out = m.language_model.generate(inputs_embeds=emb, attention_mask=attn, **GEN)
     return m.tokenizer.decode(out[0], skip_special_tokens=True).strip()
-
-
-@torch.no_grad()
-def gen_direct(m, pv, context_text):
-    if context_text is None:
-        out = m.generate_without_context(pv, **GEN)
-    else:
-        tok = m.tokenizer(context_text, return_tensors='pt', truncation=True,
-                          max_length=200).to(pv.device)
-        out = m.generate_with_context(pv, tok.input_ids, tok.attention_mask, **GEN)
-    return m.tokenizer.decode(out[0], skip_special_tokens=True).strip()
-
-
-def dc_context(reports):
-    return "Context: " + " ".join(reports) + " Findings: "
 
 
 # ------------------------------------------------------------------ runner
@@ -232,16 +199,14 @@ def content_tests(prefix, medical, pangram, swapped, indices, ctx):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--models', default='stage1,qformer,direct')
+    ap.add_argument('--models', default='stage1,qformer')
     ap.add_argument('--stage1_ckpt', default='./checkpoints/stage1_retrained/best_model.pt')
     ap.add_argument('--qformer_ckpt', default='./checkpoints/stage2_retrained/best_model.pt')
-    ap.add_argument('--direct_ckpt', default='./checkpoints/direct_context/best_model.pt')
-    ap.add_argument('--control_ckpt', default='./checkpoints/direct_context_nocontext/best_model.pt')
     ap.add_argument('--val_csv', default='./data/processed/mimic_cxr_val_clean.csv')
     ap.add_argument('--val_cache', default='./data/retrained_gtr/retrieval_cache_val_gtr.pkl')
     ap.add_argument('--n_eval', type=int, default=1000)
     ap.add_argument('--n_ablation', type=int, default=100)
-    ap.add_argument('--output_dir', default='./results/direct_vs_qformer')
+    ap.add_argument('--output_dir', default='./results/content_ablation')
     ap.add_argument('--device', default='cuda:0')
     args = ap.parse_args()
 
@@ -289,42 +254,18 @@ def main():
         summary.update(content_tests('qf', p_with[:n_ab], p_pan, p_swp, abl_idx, ctx))
         free(m)
 
-    if 'direct' in models:
-        print("\n=== Direct context (OPT fine-tuned with retrieved text) ===")
-        m = load_direct(args.direct_ckpt, device)
-        p_with = run_condition('dc_with', lambda i, pv: gen_direct(m, pv, dc_context(R[i])),
-                               eval_idx, ctx, args.output_dir)
-        p_none = run_condition('dc_without', lambda i, pv: gen_direct(m, pv, None),
-                               eval_idx, ctx, args.output_dir)
-        p_pan = run_condition('dc_pangram', lambda i, pv: gen_direct(m, pv, dc_context(PANGRAMS)),
-                              abl_idx, ctx, args.output_dir)
-        p_swp = run_condition('dc_swapped', lambda i, pv: gen_direct(m, pv, dc_context(R[swap_of[i]])),
-                              abl_idx, ctx, args.output_dir)
-        summary['dc_with'] = score_condition(p_with, refs_eval)
-        summary['dc_without'] = score_condition(p_none, refs_eval)
-        summary.update(content_tests('dc', p_with[:n_ab], p_pan, p_swp, abl_idx, ctx))
-        free(m)
-
-    if 'control' in models:
-        print("\n=== Control (OPT fine-tuned with 'Findings: ' prompt only) ===")
-        m = load_direct(args.control_ckpt, device)
-        p = run_condition('ctrl', lambda i, pv: gen_direct(m, pv, "Findings: "),
-                          eval_idx, ctx, args.output_dir)
-        summary['ctrl'] = score_condition(p, refs_eval)
-        free(m)
-
     summary['_config'] = {'n_eval': n_eval, 'n_ablation': n_ab, 'generation': GEN,
                           'truncation_words': TRUNC, 'pangrams': PANGRAMS}
     json.dump(summary, open(summary_path, 'w'), indent=2)
 
     print("\n" + "=" * 78)
     print(f"{'condition':<12}{'words':>7}{'B4 full':>9}" + "".join(f"{'B4@'+str(n)+'w':>9}" for n in TRUNC))
-    for k in ['s1', 'qf_none', 'qf_with', 'ctrl', 'dc_without', 'dc_with']:
+    for k in ['s1', 'qf_none', 'qf_with']:
         if k in summary:
             s = summary[k]
             print(f"{k:<12}{s['avg_words']:>7.1f}{s['bleu4_full']:>9.4f}"
                   + "".join(f"{s[f'bleu4_{n}w']:>9.4f}" for n in TRUNC))
-    for k in ['qf_content_ablation', 'dc_content_ablation', 'qf_swapped_context', 'dc_swapped_context']:
+    for k in ['qf_content_ablation', 'qf_swapped_context']:
         if k in summary:
             print(k, json.dumps(summary[k]))
     print(f"Saved: {summary_path}")

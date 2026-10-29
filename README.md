@@ -85,8 +85,8 @@ python src/data_prep/rebuild_splits.py --processed_dir ./data/processed
 
 This writes `data/processed/mimic_cxr_{train,val,test}_clean.csv` and
 `iu_xray_{train,val,test}_clean.csv`. On our data the rebuilt files are byte-identical to the
-ones used in the paper. Row order matters: the VLM baselines (Table 1) and the matched-decoding
-comparison (Table 5) use the first 1,000 rows of `mimic_cxr_val_clean.csv`.
+ones used in the paper. Row order matters: the VLM baselines (Table 1) use the first 1,000 rows
+of `mimic_cxr_val_clean.csv`, and the content ablation (Section 3.3) uses the first 100.
 
 The patient-level splits were originally made with `fix_patient_leakage.py` (it reassigns
 patients that crossed the official MIMIC-CXR split boundaries). `check_data_leakage.py`,
@@ -218,26 +218,18 @@ Evaluate each run without retrieval (`evaluate_models_comprehensive_fast.py`) an
 BiomedCLIP retrieval (`evaluate_biomedclip_retrieval.py --mode evaluate`). For OPT-6.7B, use
 `evaluate_comprehensive_6.7b.py` and `evaluate_biomedclip_6.7b.py`.
 
-### 8. Table 5: direct decoder integration and matched decoding
+### 8. Retrieval content ablation (Section 3.3)
 
 ```bash
-python src/training/train_direct_context.py --stage1_checkpoint $S1 \
-    --retrieval_cache_train ./data/gtr/retrieval_cache_train_gtr.pkl \
-    --retrieval_cache_val ./data/gtr/retrieval_cache_val_gtr.pkl --output_dir ./checkpoints/direct_context
-python src/training/train_direct_context_nocontext.py --stage1_checkpoint $S1 \
-    --retrieval_cache_train ./data/gtr/retrieval_cache_train_gtr.pkl \
-    --retrieval_cache_val ./data/gtr/retrieval_cache_val_gtr.pkl --output_dir ./checkpoints/direct_context_nocontext
-python src/evaluation/eval_direct_vs_qformer.py --models stage1,qformer,direct,control \
-    --stage1_ckpt $S1 --qformer_ckpt $S2 \
-    --direct_ckpt ./checkpoints/direct_context/best_model.pt \
-    --control_ckpt ./checkpoints/direct_context_nocontext/best_model.pt \
-    --val_cache ./data/gtr/retrieval_cache_val_gtr.pkl --output_dir ./results/direct_vs_qformer
+python src/evaluation/evaluate_content_ablation.py --models stage1,qformer \
+    --stage1_ckpt $S1 --qformer_ckpt $S2 --val_csv $VAL \
+    --val_cache ./data/gtr/retrieval_cache_val_gtr.pkl --output_dir ./results/content_ablation
 ```
 
-`eval_direct_vs_qformer.py` also runs the retrieval content ablation (pangram and
-swapped-context tests) and the bootstrap confidence intervals.
+With real images, this replaces the retrieved reports with pangrams and with another patient's
+reports (first 100 validation samples), and reports the identical-output rate and word overlap.
 
-### 9. Table 6: diagnostic experiments
+### 9. Table 5: diagnostic experiments
 
 | Exp | Stage 1 | Stage 2 | Evaluation |
 |---|---|---|---|
